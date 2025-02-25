@@ -84,7 +84,7 @@ journalctl -u startx.service
 Run ```xrandr``` to check for connected displays. If anything doesn't work, check the log for errors.  
 
 **RTSP Media Player (MPV):**  
-TO install MPV, run the following command:  
+To install MPV, run the following command:  
 ```
 sudo apt update
 sudo apt install mpv
