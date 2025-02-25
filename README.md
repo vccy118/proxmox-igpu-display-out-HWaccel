@@ -82,3 +82,49 @@ To see the full log:
 journalctl -u startx.service
 ```
 Run ```xrandr``` to check for connected displays. If anything doesn't work, check the log for errors.  
+
+RTSP Media Player (MPV):
+TO install MPV, run the following command:
+```
+sudo apt update
+sudo apt install mpv
+```
+Next, create a systemd service file, I chose the name frigate-mpv.service as I will be running an RTSP stream via go2rtc:
+```
+sudo nano /etc/systemd/system/frigate-mpv.service
+```
+Add in the following to the file, your-rtsp-url should be replaced with the rtsp stream to be played, then save and exit:
+```
+[Unit]
+Description=frigate-mpv
+StartLimitIntervalSec=0
+After=multi-user.target
+
+[Service]
+User=root
+Environment=DISPLAY=:0
+ExecStartPre=/bin/sleep 10
+ExecStart=/bin/bash -c '/usr/bin/mpv --stop-playback-on-init-failure --no-cache --profile=low-latency --rtsp-transport=tcp --vo=gpu --fullscreen rtsp://your-rtsp-url>
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+```
+```ExecStartPre=/bin/sleep 10``` is used to give startx.service time to initialize before frigate-mpv.service.  
+The normal way to do this is by using ```After=graphical.target``` under [Unit]. However sometimes the service doesn't start properly for my case.
+Run these to apply the service file and enable on boot:  
+```
+sudo systemctl daemon-reload
+sudo systemctl enable frigate-mpv.service
+```
+Start the service to check if it runs successfully and check its status, it should show the service is active:  
+```
+sudo systemctl start frigate-mpv.service
+sudo systemctl status frigate-mpv.service
+```
+To see the full log:  
+```
+journalctl -u frigate-mpv.service
+```
+The monitor should show an RTSP stream being played. Reboot to check if both startx and mpv runs on boot.
