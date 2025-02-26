@@ -1,7 +1,8 @@
 # proxmox-igpu-display-out-HWaccel
 Instructions to add a browser/video display out to a monitor or TV on Proxmox VE with only an igpu, while /dev/dri is already used for hardware acceleration in LXCs or containers, without the use of vfio, vd-t or virtio.
 
-**Background:**  
+<h1>Background:</h1>  
+
 Proxmox VE machines using mini PCs like Intel NUC and Beelink are inexpensive, small and widely available.  
 These mini PCs are perfect for running Home Assistant, Frigate NVR, Plex, Jellyfin, etc as LXCs or containers.  
 Usually these software requires gpu hardware acceleration for video encoding/decoding by passing through /dev/dri/ and can be shared among LXCs and containers.  
@@ -11,22 +12,26 @@ This means the vt-d IOMMU needs to be enabled, so all other LXCs, containers and
 Vfio is generally suggested for this type of use case, but the implementation is complicated and the gpu is switched between the desktop VM and the host.  
 This is unideal as the gpu unable to serve as display out and HWaccel at the same time.
 
-**Use Case:**  
+<h1>Use Case:</h1>  
+
 My Proxmox VE is installed on an Intel NUC with i3-1115g4 with UHD graphics igpu, running Home Assistant in a VM and Portainer in an LXC.  
 Portainer runs various containers including Frigate NVR with /dev/dri/ mounted through Portainer LXC.  
 I want my Proxmox Machine to be able to display an RTSP stream and/or a browser to a monitor via the HDMI port on the NUC, without interrupting /dev/dri to Portainer.  
 Technically this can also be adapted to work for Plex media player, Jellyfin media player and other graphical programs.  
 
-**The Solution:**  
+<h1>The Solution:</h1>  
+
 Instead of spinning up a full desktop environment VM, I only need an RTSP media player and a browser.  
 These can run on the Proxmox host itself, which is based on debian. Display out works as it can display CLI, but not graphical outputs as Proxmox is meant to be run headless.  
 So I need to install a graphical system (X11), RTSP media player (MPV) and a browser (Chromium), plus some other tweaks to make this work.  
 
-**Caution:**  
+<h1>Caution:</h1>  
+
 It is adviced not to run X11, MPV and Chromium with root access due to security vulnerabilities, but it is the easiest way to test run the programs.  
 Please keep in mind that this is only for testing. For long term deployment please run these programs as a non-root user.  
 
-**Graphical System (X11):**  
+<h1>Graphical System (X11):</h1>  
+
 To install X11, run the following commands in node shell or ssh:  
 ```
 apt-get update
@@ -83,7 +88,8 @@ journalctl -u startx.service
 ```
 Run ```xrandr``` to check for connected displays. If anything doesn't work, check the log for errors.  
 
-**RTSP Media Player (MPV):**  
+<h1>RTSP Media Player (MPV):</h1>  
+
 To install MPV, run the following command:  
 ```
 sudo apt update
@@ -128,3 +134,50 @@ To see the full log:
 journalctl -u frigate-mpv.service
 ```
 The monitor should show an RTSP stream being played. Reboot to check if both startx and mpv runs on boot.  
+
+<h1>Browser (Chromium):</h1>  
+
+To install Chromium, run the following command:  
+```
+sudo apt update
+sudo apt install chromium
+```
+Next, create a systemd service file, I chose the name chromium-kiosk.service as I will be running it in kiosk mode:  
+```
+sudo nano /etc/systemd/system/chromium-kiosk.service
+```
+Add in the following to the file, your-webpage-url should be replaced with the webpage to be displayed, then save and exit:  
+```
+[Unit]
+Description=Chromium Kiosk Mode
+After=multi-user.target
+
+[Service]
+User=root
+Environment=DISPLAY=:0
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/0/bus
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/dbus-launch --exit-with-session /usr/bin/chromium --no-sandbox --kiosk --disable-translate --disable-background-networking --disable-software-rasterizer --enable-gpu-rasterization --enable-oop-rasterization --enable-gpu-compositing --enable-accelerated-2d-canvas --enable-zero-copy --canvas-oop-rasterization --enable-accelerated-video-decode --enable-accelerated-video-encode --enable-features=VaapiVideoDecoder,VaapiVideoEncoder,VaapiIgnoreDriverChecks --no-first-run --disable-infobars --ignore-gpu-blocklist --start-fullscreen https:/your-webpage-url
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+```ExecStartPre=/bin/sleep 10``` is used to give startx.service time to initialize before chromium-kiosk.service.   
+The normal way to do this is by using ```After=graphical.target``` under [Unit]. However sometimes the service doesn't start properly for my setup.
+Run these to apply the service file and enable on boot:  
+```
+sudo systemctl daemon-reload
+sudo systemctl enable chromium-kiosk.service
+```
+Start the service to check if it runs successfully and check its status, it should show the service is active:  
+```
+sudo systemctl start chromium-kiosk.service
+sudo systemctl status chromium-kiosk.service
+```
+To see the full log:  
+```
+journalctl -u chromium-kiosk.service
+```
+The monitor should show the webpage in full screen kiosk mode. Reboot to check if both startx and chromium runs on boot.  
