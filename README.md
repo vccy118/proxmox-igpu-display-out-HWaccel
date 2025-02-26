@@ -181,3 +181,22 @@ To see the full log:
 journalctl -u chromium-kiosk.service
 ```
 The monitor should show the webpage in full screen kiosk mode. Reboot to check if both startx and chromium runs on boot.  
+
+<h1>Recommended Tweaks:</h1>
+
+If you are using MPV or Chromium without a keyboad and mouse attached, it can be troublesome to wake up the monitor when it goes to sleep or power saving mode.
+To fix this, we can edit ~/.bashrc to disable sleep and power saving on the monitor on boot:
+```
+sudo nano ~/.bashrc
+```
+Add in these lines at the end of the file:
+```
+export DISPLAY=:0
+xset s off
+xset -dpms
+xset s noblank
+```
+To apply the changes:
+```
+source ~/.bashrc
+```
