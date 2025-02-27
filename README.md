@@ -157,7 +157,7 @@ User=root
 Environment=DISPLAY=:0
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/0/bus
 ExecStartPre=/bin/sleep 10
-ExecStart=/usr/bin/dbus-launch --exit-with-session /usr/bin/chromium --no-sandbox --kiosk --disable-translate --disable-background-networking --disable-software-rasterizer --enable-gpu-rasterization --enable-oop-rasterization --enable-gpu-compositing --enable-accelerated-2d-canvas --enable-zero-copy --canvas-oop-rasterization --enable-accelerated-video-decode --enable-accelerated-video-encode --enable-features=VaapiVideoDecoder,VaapiVideoEncoder,VaapiIgnoreDriverChecks --no-first-run --disable-infobars --ignore-gpu-blocklist --start-fullscreen https:/your-webpage-url
+ExecStart=/usr/bin/dbus-launch --exit-with-session /usr/bin/chromium --no-sandbox --kiosk --disable-translate --disable-background-networking --disable-software-rasterizer --enable-gpu-rasterization --enable-oop-rasterization --enable-gpu-compositing --enable-accelerated-2d-canvas --enable-zero-copy --canvas-oop-rasterization --enable-accelerated-video-decode --enable-accelerated-video-encode --enable-features=VaapiVideoDecoder,VaapiVideoEncoder,VaapiIgnoreDriverChecks --no-first-run --disable-infobars --ignore-gpu-blocklist --start-fullscreen https://your-webpage-url
 Restart=always
 RestartSec=5
 
@@ -166,6 +166,7 @@ WantedBy=multi-user.target
 ```
 ```ExecStartPre=/bin/sleep 10``` is used to give startx.service time to initialize before chromium-kiosk.service.   
 The normal way to do this is by using ```After=graphical.target``` under [Unit]. However, sometimes the service doesn't start properly for my setup.
+The long and complicated flags for Chromium is to force enable hardware acceleration. This will save cpu resources and make the browser run smoother.
 Run these to apply the service file and enable on boot:  
 ```
 sudo systemctl daemon-reload
@@ -182,21 +183,92 @@ journalctl -u chromium-kiosk.service
 ```
 The monitor should show the webpage in full screen kiosk mode. Reboot to check if both startx and chromium run on boot.  
 
+<h1>Make Chromium Open Persistently</h1>
+
+Accidents happen and Chromium may crash or force close (alt+f4) on occasion. To enable Chromium to open persistently, we can create a script to relaunch Chromium whenever it closes:  
+```
+sudo nano /usr/local/bin/start_chromium.sh
+```
+Add in the following:  
+```
+#!/bin/bash
+while true; do
+    chromium --no-sandbox --kiosk --disable-translate --disable-background-networking --disable-software-rasterizer --enable-gpu-rasterization --enable-oop-rasterization --enable-gpu-compositing --enable-accelerated-2d-canvas --enable-zero-copy --canvas-oop-rasterization --enable-accelerated-video-decode --enable-accelerated-video-encode --enable-features=VaapiVideoDecoder,VaapiVideoEncoder,VaapiIgnoreDriverChecks --no-first-run --disable-infobars --ignore-gpu-blocklist --start-fullscreen https://your-webpage-url
+    sleep 2
+done
+```
+This causes Chromium to launch in a loop. Whenever the chromium window is closed, a new one opens after 2 seconds.  
+Make the script executable:  
+```
+chmod +x /usr/local/bin/start_chromium.sh
+```
+Edit chromium-kiosk.service to run the new script:  
+```
+[Unit]
+Description=Chromium Kiosk Mode
+After=multi-user.target
+
+[Service]
+User=root
+Environment=DISPLAY=:0
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/0/bus
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/dbus-launch --exit-with-session /usr/local/bin/start_chromium.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+Apply the changes:  
+```
+sudo systemctl daemon-reload
+```
+Reboot to check
+
 <h1>Recommended Tweaks:</h1>
 
-If you are using MPV or Chromium without a keyboad and mouse attached, it can be troublesome to wake up the monitor when it goes to sleep or power saving mode.
-To fix this, we can edit ~/.bashrc to disable sleep and power saving on the monitor on boot:
+If you are using MPV or Chromium without a keyboad and mouse attached, it can be troublesome to wake up the monitor when it goes to sleep or power saving mode.  
+To fix this, we can edit ~/.bashrc to disable sleep and power saving on the monitor on terminal login:  
 ```
 sudo nano ~/.bashrc
 ```
-Add in these lines at the end of the file:
+Add in these lines at the end of the file:  
 ```
 export DISPLAY=:0
 xset s off
 xset -dpms
 xset s noblank
 ```
-To apply the changes:
+To apply the changes:  
 ```
 source ~/.bashrc
+```
+Alternatively, a system service file can be used to disable sleep and power saving on boot:  
+```
+sudo nano /etc/systemd/system/disable-sleep.service
+```
+Add in the following to the file:  
+```
+[Unit]
+Description=disable monitor sleep
+StartLimitIntervalSec=0
+After=multi-user.target
+
+[Service]
+Type=oneshot
+User=root
+Environment=DISPLAY=:0
+ExecStartPre=/bin/sleep 10
+ExecStart=xset s off
+ExecStart=xset -dpms
+ExecStart=xset s noblank
+
+[Install]
+WantedBy=multi-user.target
+```
+Run these to apply the service file and enable on boot:  
+```
+sudo systemctl daemon-reload
+sudo systemctl enable disable-sleep.service
 ```
