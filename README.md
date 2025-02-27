@@ -5,12 +5,12 @@ Instructions to add a browser/video display out to a monitor or TV on Proxmox VE
 
 Proxmox VE machines using mini PCs like Intel NUC and Beelink are inexpensive, small and widely available.  
 These mini PCs are perfect for running Home Assistant, Frigate NVR, Plex, Jellyfin, etc as LXCs or containers.  
-Usually these software requires gpu hardware acceleration for video encoding/decoding by passing through /dev/dri/ and can be shared among LXCs and containers.  
-However, Mini PCs usually only includes an igpu without any option to add a dedicated gpu.  
+Usually, these software requires gpu hardware acceleration for video encoding/decoding by passing through /dev/dri/ and can be shared among LXCs and containers.  
+However, Mini PCs usually only include an igpu without any option to add a dedicated gpu.  
 Generally, to get a display out, a full desktop environment running in a VM is required, with full gpu passthrough.  
 This means the vt-d IOMMU needs to be enabled, so all other LXCs, containers and even Proxmox VE itself will lose access to the gpu, including /dev/dri for HWaccel.  
 Vfio is generally suggested for this type of use case, but the implementation is complicated and the gpu is switched between the desktop VM and the host.  
-This is unideal as the gpu unable to serve as display out and HWaccel at the same time.
+This is unideal as the gpu is unable to serve as display out and HWaccel at the same time.
 
 <h1>Use Case:</h1>  
 
@@ -23,7 +23,7 @@ Technically this can also be adapted to work for Plex media player, Jellyfin med
 
 Instead of spinning up a full desktop environment VM, I only need an RTSP media player and a browser.  
 These can run on the Proxmox host itself, which is based on debian. Display out works as it can display CLI, but not graphical outputs as Proxmox is meant to be run headless.  
-So I need to install a graphical system (X11), RTSP media player (MPV) and a browser (Chromium), plus some other tweaks to make this work.  
+So, I need to install a graphical system (X11), RTSP media player (MPV) and a browser (Chromium), plus some other tweaks to make this work.  
 
 <h1>Caution:</h1>  
 
@@ -53,7 +53,7 @@ Run ```xrandr``` again to check for connected displays, the output should be sim
 ```
 DP-2 connected 1920x1080+0+0 (normal left inverted right x axis y axis)
 ```
-The connected monitor should shows a blank screen with a mouse courser.  
+The connected monitor should show a blank screen with a mouse courser.  
 Running all the commands manually on every reboot is tedious, so create a systemd startx.service to run on boot in the background:  
 ```
 sudo nano /etc/systemd/system/startx.service
@@ -118,7 +118,7 @@ RestartSec=5s
 WantedBy=multi-user.target
 ```
 ```ExecStartPre=/bin/sleep 10``` is used to give startx.service time to initialize before frigate-mpv.service.   
-The normal way to do this is by using ```After=graphical.target``` under [Unit]. However sometimes the service doesn't start properly for my setup.  
+The normal way to do this is by using ```After=graphical.target``` under [Unit]. However, sometimes the service doesn't start properly for my setup.  
 Run these to apply the service file and enable on boot:  
 ```
 sudo systemctl daemon-reload
@@ -133,7 +133,7 @@ To see the full log:
 ```
 journalctl -u frigate-mpv.service
 ```
-The monitor should show an RTSP stream being played. Reboot to check if both startx and mpv runs on boot.  
+The monitor should show an RTSP stream being played. Reboot to check if both startx and mpv run on boot.  
 
 <h1>Browser (Chromium):</h1>  
 
@@ -165,7 +165,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 ```ExecStartPre=/bin/sleep 10``` is used to give startx.service time to initialize before chromium-kiosk.service.   
-The normal way to do this is by using ```After=graphical.target``` under [Unit]. However sometimes the service doesn't start properly for my setup.
+The normal way to do this is by using ```After=graphical.target``` under [Unit]. However, sometimes the service doesn't start properly for my setup.
 Run these to apply the service file and enable on boot:  
 ```
 sudo systemctl daemon-reload
@@ -180,7 +180,7 @@ To see the full log:
 ```
 journalctl -u chromium-kiosk.service
 ```
-The monitor should show the webpage in full screen kiosk mode. Reboot to check if both startx and chromium runs on boot.  
+The monitor should show the webpage in full screen kiosk mode. Reboot to check if both startx and chromium run on boot.  
 
 <h1>Recommended Tweaks:</h1>
 
